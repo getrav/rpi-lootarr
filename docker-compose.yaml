@@ -1,0 +1,124 @@
+version: "3.6"
+
+services:
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - 8888:8888/tcp  # HTTP proxy
+      - 8388:8388/tcp  # Shadowsocks
+      - 8388:8388/udp  # Shadowsocks
+      - 9696:9696      # Prowlarr
+      - 8191:8191      # Flaresolverr
+      - 8085:8085      # Qbittorrent
+      - 6885:6881      # Qbittorrent
+      - 6885:6881/udp  # Qbittorrent
+      - 7878:7878      # Radarr
+      - 8989:8989      # Sonarr
+      - 80:80        # Heimdall
+    environment:
+      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER}
+      - VPN_TYPE=${VPN_TYPE}
+      - OPENVPN_USER=${OPENVPN_USER}
+      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}
+      - TZ=${TZ}
+    restart: always
+  ombi:
+    image: linuxserver/ombi
+    container_name: ombi
+    environment:
+      - PUID=1000  # Adjust to match your user
+      - PGID=1000  # Adjust to match your group
+      - TZ=${TZ}   # Set your timezone
+    volumes:
+      - ${config}/ombi:/config  # Adjust the path as needed
+    ports:
+      - 3579:3579  # Change the host port if necessary
+    restart: always
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    network_mode: "service:gluetun"
+    volumes:
+      - ${config}/prowlarr:/config
+    restart: always
+
+  heimdall:
+    image: linuxserver/heimdall
+    container_name: heimdall
+    environment:
+      - PUID=1000  # Adjust if necessary
+      - PGID=1000  # Adjust if necessary
+      - TZ=${TZ}
+    network_mode: "service:gluetun"
+    volumes:
+      - ${config}/heimdall:/config  # Adjust the path as needed
+#    ports:
+#      - 2080:80  # Change the host port if 80 is already in use
+    restart: always
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    network_mode: "service:gluetun"
+    volumes:
+      - ${config}/flaresolverr:/config
+    environment:
+      - LOG_LEVEL=info
+    restart: always
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    network_mode: "service:gluetun"
+    environment:
+      - WEBUI_PORT=8085
+    volumes:
+      - ${config}/qbittorrent:/config
+      - ${media}/downloads:/downloads
+    restart: always
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    network_mode: "service:gluetun"
+    volumes:
+      - ${config}/radarr:/config
+      - ${media}/movies:/movies
+      - ${media}/downloads:/downloads
+    restart: always
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    network_mode: "service:gluetun"
+    volumes:
+      - ${config}/sonarr:/config
+      - ${media}/tv:/tv
+      - ${media}/downloads:/downloads
+    restart: always
+
+  plex:
+    image: lscr.io/linuxserver/plex:latest
+
+    container_name: plex
+    environment:
+    - PUID=1000
+    - PGID=1000
+    - VERSION=docker
+    - HOSTNAME="PlexIndia"
+    network_mode: host
+    privileged: true
+    volumes:
+      - ${config}/plex:/config
+      - ${media}/movies:/movies
+      - ${media}/tv:/tv
+      - ${media}/music:/music
+      - ${media}/photos:/photos
+      - ${media}/downloads:/downloads
+    restart: always
