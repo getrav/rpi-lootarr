@@ -1,32 +1,63 @@
 version: "3.6"
-
+networks:
+  traefik-proxy:
+    external: true
 services:
-  gluetun:
-    image: qmcgaw/gluetun
-    container_name: gluetun
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    ports:
-      - 8888:8888/tcp  # HTTP proxy
-      - 8388:8388/tcp  # Shadowsocks
-      - 8388:8388/udp  # Shadowsocks
-      - 9696:9696      # Prowlarr
-      - 8191:8191      # Flaresolverr
-      - 8085:8085      # Qbittorrent
-      - 6885:6881      # Qbittorrent
-      - 6885:6881/udp  # Qbittorrent
-      - 7878:7878      # Radarr
-      - 8989:8989      # Sonarr
-      - 80:80        # Heimdall
+  # gluetun:
+  #   image: qmcgaw/gluetun
+  #   container_name: gluetun
+  #   cap_add:
+  #     - NET_ADMIN
+  #   devices:
+  #     - /dev/net/tun:/dev/net/tun
+  #   ports:
+  #     - 8888:8888/tcp  # HTTP proxy
+  #     - 8388:8388/tcp  # Shadowsocks
+  #     - 8388:8388/udp  # Shadowsocks
+  #     - 9696:9696      # Prowlarr
+  #     - 8191:8191      # Flaresolverr
+  #     - 8085:8085      # Qbittorrent
+  #     - 6885:6881      # Qbittorrent
+  #     - 6885:6881/udp  # Qbittorrent
+  #     - 7878:7878      # Radarr
+  #     - 8989:8989      # Sonarr
+  #     - 80:80          # Heimdall
+  #     - 8090:8090      # sabnzbd
+  #   environment:
+  #     - VPN_SERVICE_PROVIDER=private internet access
+  #     - VPN_TYPE=openvpn
+  #     - OPENVPN_USER=${VPN_USER}
+  #     - OPENVPN_PASSWORD=${VPN_PASSWORD}
+  #     - TZ=${TZ}
+  #   dns:
+  #     - 1.1.1.1
+  #     - 8.8.8.8
+  #   restart: always
+
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd
+    container_name: sabnzbd
     environment:
-      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER}
-      - VPN_TYPE=${VPN_TYPE}
-      - OPENVPN_USER=${OPENVPN_USER}
-      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}
+      - PUID=0
+      - PGID=0
+      - UMASK=000
       - TZ=${TZ}
-    restart: always
+    volumes:
+      - ${config}/sabnzbd:/config
+      - ${media}:/data
+    networks:
+      - traefik-proxy
+    restart: unless-stopped
+    ports:
+      - 8090:8090
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-proxy
+      - traefik.http.routers.filebot.rule=Host(`nzb.sashany.com`)
+      - traefik.http.routers.filebot.entrypoints=websecure
+      - traefik.http.routers.filebot.tls.certresolver=default
+      - traefik.http.services.filebot.loadbalancer.server.port=8090
+
   ombi:
     image: linuxserver/ombi
     container_name: ombi
@@ -39,11 +70,20 @@ services:
     ports:
       - 3579:3579  # Change the host port if necessary
     restart: always
+    labels:
+    - traefik.enable=true
+    - traefik.docker.network=traefik-proxy
+    - traefik.http.routers.pasta.rule=Host(`ombi.sashany.com`)
+    - traefik.http.routers.{service}.entrypoints=websecure
+    - traefik.http.routers.{service}.tls.certresolver=default
+    - traefik.http.services.pasta.loadbalancer.server.port=3579
+    - traefik.http.services.pasta.loadbalancer.server.scheme=http
 
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:latest
     container_name: prowlarr
-    network_mode: "service:gluetun"
+    networks:
+      - traefik-proxy
     volumes:
       - ${config}/prowlarr:/config
     restart: always
@@ -55,17 +95,26 @@ services:
       - PUID=1000  # Adjust if necessary
       - PGID=1000  # Adjust if necessary
       - TZ=${TZ}
-    network_mode: "service:gluetun"
+    networks:
+      - traefik-proxy
     volumes:
       - ${config}/heimdall:/config  # Adjust the path as needed
-#    ports:
-#      - 2080:80  # Change the host port if 80 is already in use
+    ports:
+      - 8090:80
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-proxy
+      - traefik.http.routers.filebot.rule=Host(`dash.sashany.com`)
+      - traefik.http.routers.filebot.entrypoints=websecure
+      - traefik.http.routers.filebot.tls.certresolver=default
+      - traefik.http.services.filebot.loadbalancer.server.port=8090
     restart: always
 
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr
-    network_mode: "service:gluetun"
+    networks:
+      - traefik-proxy
     volumes:
       - ${config}/flaresolverr:/config
     environment:
@@ -75,32 +124,62 @@ services:
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
-    network_mode: "service:gluetun"
+    networks:
+      - traefik-proxy
     environment:
       - WEBUI_PORT=8085
     volumes:
       - ${config}/qbittorrent:/config
       - ${media}/downloads:/downloads
+    ports:
+      - 8085:8085
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-proxy
+      - traefik.http.routers.filebot.rule=Host(`qb.sashany.com`)
+      - traefik.http.routers.filebot.entrypoints=websecure
+      - traefik.http.routers.filebot.tls.certresolver=default
+      - traefik.http.services.filebot.loadbalancer.server.port=8085
     restart: always
 
   radarr:
     image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
-    network_mode: "service:gluetun"
+    networks:
+      - traefik-proxy
     volumes:
       - ${config}/radarr:/config
       - ${media}/movies:/movies
       - ${media}/downloads:/downloads
+    ports:
+      - 7878:7878
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-proxy
+      - traefik.http.routers.filebot.rule=Host(`radarr.sashany.com`)
+      - traefik.http.routers.filebot.entrypoints=websecure
+      - traefik.http.routers.filebot.tls.certresolver=default
+      - traefik.http.services.filebot.loadbalancer.server.port=7878
     restart: always
 
   sonarr:
     image: lscr.io/linuxserver/sonarr:latest
     container_name: sonarr
-    network_mode: "service:gluetun"
+    networks:
+      - traefik-proxy
     volumes:
       - ${config}/sonarr:/config
       - ${media}/tv:/tv
       - ${media}/downloads:/downloads
+    ports:
+      - 8989:8989
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-proxy
+      - traefik.http.routers.filebot.rule=Host(`sonarr.sashany.com`)
+      - traefik.http.routers.filebot.entrypoints=websecure
+      - traefik.http.routers.filebot.tls.certresolver=default
+      - traefik.http.services.filebot.loadbalancer.server.port=8989
     restart: always
 
   plex:
@@ -122,3 +201,42 @@ services:
       - ${media}/photos:/photos
       - ${media}/downloads:/downloads
     restart: always
+    labels:
+    - traefik.enable=true
+    - traefik.docker.network=traefik-proxy
+    - traefik.http.routers.pasta.rule=Host(`plex.sashany.com`)
+    - traefik.http.routers.{service}.entrypoints=websecure
+    - traefik.http.routers.{service}.tls.certresolver=default
+    - traefik.http.services.pasta.loadbalancer.server.port=32400
+    - traefik.http.services.pasta.loadbalancer.server.scheme=http
+
+ cf-ddns:
+    container_name: cf-ddns
+    image: oznu/cloudflare-ddns:latest
+    restart: always
+    environment:
+      - API_KEY=$CLOUDFLARE_API_TOKEN
+      - ZONE=$DOMAINNAME_HOME_SERVER
+      - PROXIED=true
+      - RRTYPE=A
+      - DELETE_ON_STOP=false
+      - DNS_SERVER=1.1.1.1
+    networks:
+      - traefik-proxy
+
+  # Cloudflare Companion for Traefik
+  cf-companion:
+    image: tiredofit/traefik-cloudflare-companion:latest
+    container_name: cf-companion
+    restart: always
+    environment:
+      - TRAEFIK_VERSION=2
+      - ENABLE_TRAEFIK_POLL=TRUE
+      - TRAEFIK_POLL_URL=http://traefik:8080  # Adjust as necessary
+      - TARGET_DOMAIN=
+      - CF_EMAIL=rs@silk-crafts.com
+      - CF_TOKEN=your_cloudflare_api_token
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik-proxy
