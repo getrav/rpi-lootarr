@@ -1,0 +1,35 @@
+experimental:
+  plugins:
+    cloudflarewarp:
+      modulename: github.com/BetterCorp/cloudflarewarp
+      version: v1.3.0
+
+entryPoints:
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        certResolver: default
+
+api:
+  insecure: true
+
+log:
+  level: DEBUG
+#accessLog: {}
+
+
+certificatesResolvers:
+  default:
+    acme:
+      storage: /acme.json
+      dnsChallenge:
+        provider: cloudflare
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: traefik-proxy
+  file:
+    directory: /dynamic
