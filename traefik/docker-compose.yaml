@@ -1,0 +1,109 @@
+version: '3.5'
+
+services:
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    restart: always
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      traefik-proxy:
+        ipv4_address: 192.168.90.254
+    ports:
+      - 443:443
+      - 8080:8080
+    env_file:
+      - ${TRAEFIK}/.env.traefik
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${TRAEFIK}/acme.json:/acme.json
+      - ${TRAEFIK}/traefik.yml:/traefik.yml
+      - ${TRAEFIK}/dynamic:/dynamic
+      - ${TRAEFIK}/logs:/var/log/traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https"
+      - "traefik.http.routers.websecure.entrypoints=websecure"
+      - "traefik.http.routers.websecure.tls=true"
+      - "traefik.http.routers.websecure.tls.certresolver=default"
+      - "traefik.http.routers.websecure.tls.domains[0].main=sashany.com"
+      - "traefik.http.routers.websecure.tls.domains[0].sans=*.sashany.com"
+
+  mariadb:
+    image: mariadb:latest
+    container_name: mariadb
+    hostname: mariadb
+    restart: always
+    networks:
+      database:
+      traefik-proxy:
+    ports:
+      - 3306:3306
+    env_file:
+      - ${TRAEFIK}/.env.mariadb
+    volumes:
+      - ${TRAEFIK}/mariadb:/var/lib/mysql
+      - /etc/localtime:/etc/localtime:ro
+
+  oauth:
+    image: thomseddon/traefik-forward-auth:2-arm64
+    platform: linux/arm64/v8
+    container_name: oauth
+    restart: always
+    networks:
+      - traefik-proxy
+    env_file:
+      - ${TRAEFIK}/secrets/.env.oauth
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.oauth-rtr.tls=true"
+      - "traefik.http.routers.oauth-rtr.entrypoints=websecure"
+      - "traefik.http.routers.oauth-rtr.rule=Host(`oauth.sashany.com`)"
+      - "traefik.http.routers.oauth-rtr.middlewares=chain-oauth@file"
+      - "traefik.http.routers.oauth-rtr.service=oauth-svc"
+      - "traefik.http.services.oauth-svc.loadbalancer.server.port=4181"
+
+ # Cloudflare Companion for Traefik
+  cf-companion:
+    image: tiredofit/traefik-cloudflare-companion:latest
+    container_name: cf-companion
+    restart: always
+    environment:
+      - TRAEFIK_VERSION=2
+      - ENABLE_TRAEFIK_POLL=TRUE
+      - TRAEFIK_POLL_URL=http://traefik:8080  # Adjust as necessary
+      - TARGET_DOMAIN=${ZONE}
+      - CF_EMAIL=${CF_API_EMAIL}
+      - CF_TOKEN=${CF_DNS_API_TOKEN}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik-proxy
+
+  # Cloudflare DDNS - Dynamic DNS Updater
+  cf-ddns:
+    container_name: cf-ddns
+    image: oznu/cloudflare-ddns:latest
+    restart: always
+    environment:
+      - API_KEY=${CF_DNS_API_TOKEN}
+      - ZONE=${ZONE}
+      - PROXIED=true
+      - RRTYPE=A
+      - DELETE_ON_STOP=false
+      - DNS_SERVER=1.1.1.1
+    networks:
+      - traefik-proxy
+
+networks:
+  traefik-proxy:
+    name: traefik-proxy
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.90.0/24
+
+  database:
+    name: database
