@@ -53,7 +53,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik-proxy
-      - traefik.http.routers.filebot.rule=Host(`nzb.sashany.com`)
+      - traefik.http.routers.filebot.rule=Host(`nzb.${DOMAIN_NAME}`)
       - traefik.http.routers.filebot.entrypoints=websecure
       - traefik.http.routers.filebot.tls.certresolver=default
       - traefik.http.services.filebot.loadbalancer.server.port=8090
@@ -73,7 +73,7 @@ services:
     labels:
     - traefik.enable=true
     - traefik.docker.network=traefik-proxy
-    - traefik.http.routers.pasta.rule=Host(`ombi.sashany.com`)
+    - traefik.http.routers.pasta.rule=Host(`ombi.${DOMAIN_NAME}`)
     - traefik.http.routers.{service}.entrypoints=websecure
     - traefik.http.routers.{service}.tls.certresolver=default
     - traefik.http.services.pasta.loadbalancer.server.port=3579
@@ -104,7 +104,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik-proxy
-      - traefik.http.routers.filebot.rule=Host(`dash.sashany.com`)
+      - traefik.http.routers.filebot.rule=Host(`dash.${DOMAIN_NAME}`)
       - traefik.http.routers.filebot.entrypoints=websecure
       - traefik.http.routers.filebot.tls.certresolver=default
       - traefik.http.services.filebot.loadbalancer.server.port=8090
@@ -136,7 +136,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik-proxy
-      - traefik.http.routers.filebot.rule=Host(`qb.sashany.com`)
+      - traefik.http.routers.filebot.rule=Host(`qb.${DOMAIN_NAME}`)
       - traefik.http.routers.filebot.entrypoints=websecure
       - traefik.http.routers.filebot.tls.certresolver=default
       - traefik.http.services.filebot.loadbalancer.server.port=8085
@@ -156,7 +156,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik-proxy
-      - traefik.http.routers.filebot.rule=Host(`radarr.sashany.com`)
+      - traefik.http.routers.filebot.rule=Host(`radarr.${DOMAIN_NAME}`)
       - traefik.http.routers.filebot.entrypoints=websecure
       - traefik.http.routers.filebot.tls.certresolver=default
       - traefik.http.services.filebot.loadbalancer.server.port=7878
@@ -176,7 +176,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik-proxy
-      - traefik.http.routers.filebot.rule=Host(`sonarr.sashany.com`)
+      - traefik.http.routers.filebot.rule=Host(`sonarr.${DOMAIN_NAME}`)
       - traefik.http.routers.filebot.entrypoints=websecure
       - traefik.http.routers.filebot.tls.certresolver=default
       - traefik.http.services.filebot.loadbalancer.server.port=8989
@@ -204,7 +204,7 @@ services:
     labels:
     - traefik.enable=true
     - traefik.docker.network=traefik-proxy
-    - traefik.http.routers.pasta.rule=Host(`plex.sashany.com`)
+    - traefik.http.routers.pasta.rule=Host(`plex.${DOMAIN_NAME}`)
     - traefik.http.routers.{service}.entrypoints=websecure
     - traefik.http.routers.{service}.tls.certresolver=default
     - traefik.http.services.pasta.loadbalancer.server.port=32400
